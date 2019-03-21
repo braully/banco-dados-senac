@@ -1,0 +1,1 @@
+web: java -jar target/banco-dados-senac-1.0.jar
