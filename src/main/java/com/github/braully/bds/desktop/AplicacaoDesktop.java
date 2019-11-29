@@ -46,6 +46,8 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
         jMenuItem1 = new javax.swing.JMenuItem();
         conteudo = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        arvoreMenu = new javax.swing.JTree();
 
         jRadioButtonMenuItem1.setSelected(true);
         jRadioButtonMenuItem1.setText("jRadioButtonMenuItem1");
@@ -63,15 +65,32 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
 
+        javax.swing.tree.DefaultMutableTreeNode treeNode1 = new javax.swing.tree.DefaultMutableTreeNode("Banco de Dados");
+        javax.swing.tree.DefaultMutableTreeNode treeNode2 = new javax.swing.tree.DefaultMutableTreeNode("Empresa");
+        javax.swing.tree.DefaultMutableTreeNode treeNode3 = new javax.swing.tree.DefaultMutableTreeNode("Funcionário");
+        treeNode2.add(treeNode3);
+        treeNode3 = new javax.swing.tree.DefaultMutableTreeNode("Busca Funcionário");
+        treeNode2.add(treeNode3);
+        treeNode3 = new javax.swing.tree.DefaultMutableTreeNode("Departamento");
+        treeNode2.add(treeNode3);
+        treeNode1.add(treeNode2);
+        arvoreMenu.setModel(new javax.swing.tree.DefaultTreeModel(treeNode1));
+        arvoreMenu.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
+            public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
+                arvoreMenuValueChanged(evt);
+            }
+        });
+        jScrollPane1.setViewportView(arvoreMenu);
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 222, Short.MAX_VALUE)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 222, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addComponent(jScrollPane1)
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -97,6 +116,26 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void arvoreMenuValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_arvoreMenuValueChanged
+        // TODO add your handling code here:
+        conteudo.removeAll();
+        Object selecionado = evt.getNewLeadSelectionPath().getLastPathComponent().toString();
+        if ("Funcionário".equals(selecionado)) {
+            PanelFuncionario panel = new PanelFuncionario();
+            conteudo.add(panel);
+        } else if ("Busca Funcionário".equals(selecionado)) {
+            PanelFuncionariosLista panel = new PanelFuncionariosLista();
+            conteudo.add(panel);
+        } else if ("Departamento".equals(selecionado)) {
+            PanelDepartamento panel = new PanelDepartamento();
+            conteudo.add(panel);
+            panel.carregarTodosDepartamentos();
+            panel.carregarComboGerente();
+        }
+        validate();
+        repaint();
+    }//GEN-LAST:event_arvoreMenuValueChanged
 
     /**
      * @param args the command line arguments
@@ -137,12 +176,14 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JTree arvoreMenu;
     private javax.swing.JPanel conteudo;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JRadioButtonMenuItem jRadioButtonMenuItem1;
+    private javax.swing.JScrollPane jScrollPane1;
     // End of variables declaration//GEN-END:variables
 
     @Override
@@ -153,19 +194,20 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
 
     public void salvarFuncionario(String nome, String cpf) throws SQLException {
         Statement statement = dataSource.getConnection().createStatement();
-        statement.execute("insert into FUNCIONARIO (nome, cpf) VALUES ('" + nome + "', '" + cpf + "');");
+        String comandoSql = "insert into FUNCIONARIO (pnome, cpf) VALUES ('" + nome + "', '" + cpf + "');";
+        statement.execute(comandoSql);
         statement.close();
-
+        System.out.println("Comando sql excutado: " + comandoSql);
     }
 
     public List buscarFuncionario(String nome) throws SQLException {
         Statement statement = dataSource.getConnection().createStatement();
-        ResultSet resultado = statement.executeQuery("select nome, cpf from funcionario where nome like '%" + nome + "%'");
+        ResultSet resultado = statement.executeQuery("select pnome, cpf from funcionario where pnome like '%" + nome + "%'");
 
         List listaResultado = new ArrayList();
         while (resultado.next()) {
             //Recupera valor referente ao nome da coluna
-            listaResultado.add(new String[]{resultado.getString("nome"), resultado.getString("cpf")});
+            listaResultado.add(new String[]{resultado.getString("pnome"), resultado.getString("cpf")});
         }
 
         resultado.close();
@@ -174,7 +216,32 @@ public class AplicacaoDesktop extends javax.swing.JFrame implements CommandLineR
         return listaResultado;
     }
 
-    @Autowired
+    @Autowired(required = false)
     DataSource dataSource;
 
+    void deletarFuncionario(String cpfFuncionario) throws SQLException {
+        Statement statement = dataSource.getConnection().createStatement();
+        String comandoSql = "DELETE FROM FUNCIONARIO WHERE cpf='" + cpfFuncionario + "';";
+        statement.execute(comandoSql);
+        statement.close();
+        System.out.println("Comando sql excutado: " + comandoSql);
+    }
+
+    List buscaTodosDepartamentos() throws SQLException {
+        Statement statement = dataSource.getConnection().createStatement();
+        ResultSet resultado = statement.executeQuery("SELECT dnumero, dnome, COUNT(cpf) "
+                + "FROM Departamento LEFT JOIN Funcionario ON dnr = dnumero "
+                + "GROUP BY dnumero, dnome");
+
+        List listaResultado = new ArrayList();
+        while (resultado.next()) {
+            //Recupera valor referente ao nome da coluna
+            listaResultado.add(new String[]{resultado.getString("dnumero"),
+                resultado.getString("dnome"), resultado.getString("count")});
+        }
+
+        resultado.close();
+        statement.close();
+        return listaResultado;
+    }
 }
